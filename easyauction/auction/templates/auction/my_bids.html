@@ -1,0 +1,80 @@
+{% extends "auction/base2.html" %}
+
+# Sets page title
+{% block title %}My Bids{% endblock %}
+
+{% block content %}
+    <v-card class="d-inline-block mx-auto text-center">
+
+        <v-toolbar dark dense class="main-gradient mb-4">
+            <v-spacer></v-spacer>
+            <v-toolbar-title>My Bid History</v-toolbar-title>
+            <v-spacer></v-spacer>
+        </v-toolbar>
+        <div class="px-5">
+            <form method="GET">
+                {% csrf_token %}
+
+                <input type="hidden" name="filter" :value="[[selected_filter]]">
+                <v-select
+                        :items="filters"
+                        label="Filter"
+                        v-model="selected_filter"
+                >
+                </v-select>
+
+                <input type="hidden" name="order" :value="[[selected_ordering]]">
+                <v-select
+                        :items="orderings"
+                        label="Order by"
+                        v-model="selected_ordering"
+                >
+                </v-select>
+
+                <v-btn color="#7579ff" dark type="submit">Submit</v-btn>
+            </form>
+        </div>
+        <v-divider class="mt-10"></v-divider>
+        {% if object_list %}
+            <v-list>
+                {% for bid in object_list %}
+                    <v-list-item
+                            href="{% url 'auction:item' bid.item.pk %}"
+                    >
+                        <v-list-item-content>
+                            <v-list-item-title>Bid on {{ bid.item.name }} for ${{ bid.price }}</v-list-item-title>
+                            <v-list-item-subtitle>Auction: {{ bid.item.auction.name }}<br>
+                                                  Placed on {{ bid.timestamp }}
+                            </v-list-item-subtitle>
+                        </v-list-item-content>
+                    </v-list-item>
+                    <v-divider></v-divider>
+                {% endfor %}
+            </v-list>
+        {% else %}
+            <v-card-title>You haven't placed any bids yet.</v-card-title>
+            <v-card-text>Join an auction and start bidding!</v-card-text>
+        {% endif %}
+    </v-card>
+
+{% endblock %}
+
+{% block vue %}
+    <script>
+
+    Vue.use(Vuetify);
+
+    assorted_vue = new Vue({
+        el: '#app',
+        vuetify: new Vuetify(),
+        data: {
+            drawer: false,
+            filters: {{ filters|safe }},
+            selected_filter: null,
+            orderings: {{ orderings|safe }},
+            selected_ordering: null
+        },
+        delimiters: ["[[", "]]"]
+    });
+    </script>
+{% endblock %}

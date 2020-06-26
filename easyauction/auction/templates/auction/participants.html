@@ -1,0 +1,66 @@
+{% extends 'auction/base2.html' %}
+
+# Sets page title
+{% block title %}Auction Participants{% endblock %}
+
+{% block content %}
+    {# button to filter by winners #}
+    <v-card class="d-inline-block mx-auto text-center">
+        <v-toolbar dark dense class="main-gradient mb-4">
+            <v-btn color="white" outlined href="{% url 'auction:auction_detail' auction.id %}">
+                <v-icon>mdi-chevron-left</v-icon>
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-toolbar-title>{{ auction.name }} Participants</v-toolbar-title>
+            <v-spacer></v-spacer>
+        </v-toolbar>
+        <div class="px-5">
+            <form method="GET">
+                {% csrf_token %}
+
+                <input type="hidden" name="filter" :value="[[selected_filter]]">
+                <v-select
+                        :items="filters"
+                        label="Filter"
+                        v-model="selected_filter"
+                >
+                </v-select>
+
+                <v-btn dark color="#7579ff" type="submit">Submit</v-btn>
+            </form>
+        </div>
+        <v-divider class="mt-10"></v-divider>
+        {# v-data-table showing name, id, items won, total cost #}
+        <v-data-table
+            :headers="headers"
+            :items="participants"
+            :items-per-page="10"
+        >
+        </v-data-table>
+    </v-card>
+{% endblock %}
+
+{% block vue %}
+    <script>
+    Vue.use(Vuetify);
+
+    assorted_vue = new Vue({
+        el: '#app',
+        vuetify: new Vuetify(),
+        data: {
+            drawer: false,
+            filters: [{'text': 'All participants', 'value': false},
+                      {'text': 'Winners', 'value': true}],
+            selected_filter: null,
+            participants: {{ participants|safe }},
+            headers: [
+                {text: "Bidder", value: "name", align: 'left'},
+                {text: "ID", value: "id"},
+                {text: "Items won", value: "items_won"},
+                {text: "Total cost", value: "total_cost"}
+            ]
+        },
+        delimiters: ["[[", "]]"]
+    });
+    </script>
+{% endblock %}

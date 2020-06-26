@@ -1,0 +1,352 @@
+{% extends 'auction/base2.html' %}
+
+{% block title %}{{item.name}}{% endblock %}
+
+{% block content %}
+    <v-form id="edit_item_form" action="{% url "auction:edit_item" item.id %}" method="POST">{% csrf_token %}</v-form>
+    <form id="delete_form" action="{% url "auction:delete_item" item.id %}" method="POST">{% csrf_token %}</form>
+    <form id="bid_form" action="{% url "auction:submit_bid" item.id %}" method="POST">{% csrf_token %}</form>
+    <form id="watch_form" action="{% url "auction:watch_item" item.id %}" method="POST">{% csrf_token %}</form>
+    <form id="unwatch_form" action="{% url "auction:unwatch_item" item.id %}" method="POST">{% csrf_token %}</form>
+
+
+
+    <v-card class="d-inline-block mx-auto text-center">
+        <v-toolbar dark class="main-gradient">
+            <v-btn color="white" outlined href="{% url 'auction:auction_detail' item.auction.id %}">
+                <v-icon>mdi-chevron-left</v-icon>
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-toolbar-title>{{ item.name }}</v-toolbar-title>
+
+            {# If the user is the admin then display an edit button #}
+            {% if admin %}
+            <v-layout justify-end>
+                <v-btn style="margin-right: 10%" color="white" outlined @click="delete_item_dialog = !delete_item_dialog">
+                    <v-icon>mdi-delete</v-icon>
+                </v-btn>
+                <v-btn v-show="!edit" color="white" outlined @click="edit =!edit" >
+                    <v-icon>mdi-pencil</v-icon>
+                </v-btn>
+                <v-btn v-show="edit" outlined color="white" :disabled="!isParticipant" icon type="submit" form="edit_item_form" >
+                    <v-icon>mdi-check</v-icon>
+                </v-btn>
+            </v-layout>
+            {% endif %}
+        </v-toolbar>
+
+        <v-img contain max-width="500" max-height="375" src="{{ item.image.url }}"></v-img>
+
+        <v-card-text>
+
+            {# Displays item name #}
+            <v-text-field
+                form="edit_item_form" name="name"
+                label="Item Name" value="{{ item.name }}"
+                :readonly="!edit" color="#7579ff"
+            ></v-text-field>
+
+
+            {# Change auction type if in edit mode #}
+            <input type="hidden" name="auction_type" form="edit_item_form" :value="auction_type"/>
+            <span style="float: left" v-show="edit">Auction Type</span>
+            {% if item.is_open %}
+                <span style="color: red; float: left" v-show="edit">[Cannot change while open for bidding!]</span>
+            {% endif %}
+            <v-radio-group
+                v-show="edit"  v-model="auction_type" row
+                {% if item.is_open %}
+                    disabled
+                {% endif %}
+            >
+                <v-radio color="#7579ff" label="Silent" value="silent"></v-radio>
+                <v-radio color="#7579ff" label="Live" value="live"></v-radio>
+            </v-radio-group>
+
+
+            {# Displays current price / winning price / starting price #}
+            {% if item.auction_type == "silent" %}
+                <v-text-field
+                    {% if item.is_sold %}
+                        label="Final Bid"
+                    {% elif item.bid_set.count > 0 %}
+                        label="Current Bid"
+                    {% else %}
+                        label="Starting Price"
+                    {% endif %}
+                    prefix="$" value="{{ item.current_price }}"
+                    type="number" step=".01" readonly v-show="!edit" color="#7579ff"
+                ></v-text-field>
+                {% if item.bid_set.count == 0 %}
+                    <v-text-field
+                        form="edit_item_form" name="starting_price"
+                        label="Edit Starting Price"
+                        prefix="$" value="{{ item.starting_price }}"
+                        type="number" step=".01" v-show="edit" color="#7579ff"
+                    ></v-text-field>
+                {% endif %}
+            {% else %}
+                <v-text-field
+                    form="edit_item_form" name="starting_price" label="Starting Bid"
+                    prefix="$" value="{{ item.starting_price }}" type="number"
+                    step=".01" :readonly="!edit" color="#7579ff"
+                ></v-text-field>
+            {% endif %}
+
+
+            {# Displays the minimum bid increment #}
+            {% if item.auction_type == "silent" %}
+                <v-text-field
+                    form="edit_item_form" name="bid_increment" label="Minimum Bid Increment"
+                    prefix="$" value="{{ item.bid_increment }}" type="number"
+                    step=".01" v-show="edit" color="#7579ff"
+                ></v-text-field>
+            {% endif %}
+
+
+            {# Text input for user to bid (admin cannot bid) #}
+            {% if item.auction_type == "silent" and not admin %}
+                {# if the item is open and you aren't the highest bidder then show bid input #}
+                {% if item.is_open and item.bid_set.last.bidder != user %}
+                    <v-text-field
+                        v-model="bid_amount" form="bid_form"
+                        name="bid" label="Enter Bid" prefix="$"
+                        type="number" step=".01" :rules="[rules.amount]"
+                        v-show="!edit" color="#7579ff"
+                    ></v-text-field>
+                    <v-btn
+                        :disabled="!isCorrectAmt" :rules="[rules.amount]"
+                        form="bid_form" type="submit" form="bid_form" v-show="!edit"
+                    >
+                    Place Bid
+                    </v-btn>
+                    <span>[{{ item.bid_set.count }} [[{{ item.bid_set.count }} == 1 ? 'Bid' : 'Bids']]]</span>
+                {# if the item is not sold and not open then say item is not open for bidding #}
+                {% elif not item.is_sold and not item.is_open%}
+                    <p style="color:red; font-size: 15px">Not open for bidding</p>
+                {# if the item is open and you are the highest bidder #}
+                {% elif item.is_open and item.bid_set.last.bidder == user %}
+                    <p style="color:green; font-size: 20px"><strong>You are currently winning!</strong></p>
+                {% endif %}
+
+                {% if item not in user.watched_items.all %}
+                    <v-btn
+                        form="watch_form"
+                        v-show="!edit"
+                        color="#7579ff"
+                        type="submit"
+                        outlined
+                    >
+                    Watch
+                    </v-btn>
+                {% elif item in user.watched_items.all %}
+                    <v-btn
+                        form="unwatch_form"
+                        v-show="!edit"
+                        color="red"
+                        type="submit"
+                        outlined
+                    >
+                    Unwatch
+                    </v-btn>
+                {% endif %}
+            {% endif %}
+
+            {# if the item is sold #}
+            {% if item.auction_type == "silent" and item.is_sold %}
+                <p style="color:red; font-size: 20px"><strong>SOLD!</strong></p>
+            {% endif %}
+
+
+            {% comment %}
+            If there is a winner, then show everyone the winner and price paid; otherwise, don't show that
+            info. The admin can add/edit the winner and price paid when in edit mode.
+            {% endcomment %}
+            {% if item.auction_type == 'silent' %}
+                {% if item.winner %}
+                    <v-text-field
+                        label="Winner" readonly color="#7579ff"
+                        value="{{ item.winner.username }}"
+                    ></v-text-field>
+                {% endif %}
+            {% else %}
+                {% if item.winner %}
+                    <v-text-field
+                        form="edit_item_form" name="final_price" label="Final Bid"
+                        prefix="$" value="{{ item.current_price }}" type="number"
+                        step=".01" :readonly="!edit" color="#7579ff"
+                    ></v-text-field>
+                    <v-text-field
+                        v-show="!edit" readonly color="#7579ff"
+                        label="Winner" value="{{ item.winner.username }}"
+                    ></v-text-field>
+                {% else %}
+                    <v-text-field
+                        form="edit_item_form" name="final_price" label="Final Bid"
+                        prefix="$" value="{{ item.current_price }}" type="number"
+                        step=".01" v-show="edit" color="#7579ff"
+                    ></v-text-field>
+                {% endif %}
+                <v-combobox
+                    v-show="edit" v-model="selected_winner"
+                    :items="participants" label="Select Winner"
+                    form="edit_item_form" name="winner" :rules="[rules.winner]"
+                    :search-input.sync="winner_search" color="#7579ff"
+                ></v-combobox>
+            {% endif %}
+
+
+            {# Drop down buttons for description and bid history #}
+            <v-divider class="my-4"></v-divider>
+            <v-card-actions style="justify-content: space-around">
+                <v-btn text @click="show_desc = !show_desc">
+                    <v-icon>[[ show_desc ? 'mdi-chevron-up' : 'mdi-chevron-down' ]]</v-icon>
+                    Description
+                </v-btn>
+                {% if item.auction_type == 'silent' %}
+                    <v-btn text @click="show_bids = !show_bids">
+                        <v-icon>[[ show_bids ? 'mdi-chevron-up' : 'mdi-chevron-down' ]]</v-icon>
+                        Bid History
+                    </v-btn>
+                {% endif %}
+            </v-card-actions>
+
+            {# Displays description when drop down is clicked #}
+            <v-expand-transition>
+                <div v-show="show_desc">
+                    <v-divider class="my-4"></v-divider>
+                    <p>Description</p>
+                    <v-textarea
+                        form="edit_item_form" name="description"
+                        label="Item Description" value="{{ item.description }}"
+                        :readonly="!edit" filled color="#7579ff"
+                    ></v-textarea>
+                </div>
+            </v-expand-transition>
+
+
+            {# Displays bids when drop down is clicked #}
+            <v-expand-transition>
+                <div v-show="show_bids" class="text-center">
+                    <v-divider class="my-4"></v-divider>
+                    <p>Bid History</p>
+                    {% if item.bid_set.count > 0 and admin %}
+                    <v-btn small outlined color="red"
+                           @click="delete_bid_dialog = !delete_bid_dialog">
+                        <v-icon color="red" small>delete</v-icon>
+                        Delete latest bid
+                    </v-btn>
+                    {% endif %}
+                    <v-data-table
+                        :headers="headers"
+                        :items="bids"
+                        :items-per-page="5"
+                    >
+                    </v-data-table>
+                </div>
+            </v-expand-transition>
+
+        </v-card-text>
+    </v-card>
+
+
+    <v-dialog max-width="500" persistent v-model="delete_item_dialog">
+        <v-card>
+            <v-card-title>Confirm Item Deletion</v-card-title>
+            <v-card-text>Are you sure you want to delete the {{ item.name }}</v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn @click="delete_item_dialog = !delete_item_dialog" >Cancel</v-btn>
+                <v-btn type="submit" form="delete_form">Delete Item</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+
+    <v-dialog max-width="500" persistent v-model="delete_bid_dialog">
+        <v-card>
+            <v-card-title>Confirm Bid Deletion</v-card-title>
+            <v-card-text>Are you sure you want to delete the most recent bid for $ {{ item.bid_set.last.price }} on the {{ item.name }}?</v-card-text>
+            <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn @click="delete_bid_dialog = !delete_bid_dialog" >Cancel</v-btn>
+                <v-spacer></v-spacer>
+                {% if item.bid_set.count > 0 %}
+                    <v-btn href="{% url 'auction:remove_bid' item.id item.bid_set.last.id %}">Delete Bid</v-btn>
+                {% endif %}
+                <v-spacer></v-spacer>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+{% endblock %}
+
+{% block vue %}
+    <script>
+    /** Used for checking if users bid amount is enough **/
+    min_bid_amount = {{ item.min_bid }};
+
+    /** Used for showing bid history **/
+    bid_objects = [];
+    {% for b in item.bid_set.all %}
+        {% if admin or b.bidder == user %}
+            bid_objects.push({bidder: '{{ b.bidder }}', amount: '$ {{ b.price }}', time: '{{ b.timestamp }}' });
+        {% else %}
+            bid_objects.push({bidder: '********', amount: '$ {{ b.price }}', time: '{{ b.timestamp }}' });
+        {% endif %}
+    {% endfor %}
+    bid_objects.reverse();
+
+    /** Lists participants for admin to choose winner of live item**/
+    participants = [];
+    {% for p in item.auction.participants.all %}
+        participants.push('{{ p.username }}');
+    {% endfor %}
+
+    Vue.use(Vuetify);
+    assorted_vue = new Vue({
+        el: '#app',
+        vuetify: new Vuetify(),
+        data: {
+            drawer: false,
+            show_desc: false,
+            show_bids: false,
+            edit: false,
+            bid_amount: null,
+            rules: {
+                amount: function(value) {
+                    if (value < min_bid_amount)
+                        return 'Bid Minimum: $' + min_bid_amount.toFixed(2).toString();
+                    else return true
+                },
+                winner: function(username) {
+                    if (!participants.includes(username) && username != null && username !== "")
+                        return username + " is not a participant";
+                    else return true
+                }
+            },
+            headers: [
+                {text: "Bidder", value: "bidder", align: 'left'},
+                {text: "Bid Amount", value: "amount"},
+                {text: "Bid Time", value: "time"}
+            ],
+            bids: bid_objects,
+            selected_winner: "{{ item.winner.username }}",
+            winner_search: null,
+            participants: participants,
+            auction_type: '{{item.auction_type}}',
+            delete_item_dialog: false,
+            delete_bid_dialog: false,
+
+        },
+        computed: {
+            isCorrectAmt: function () {
+                return this.bid_amount >= min_bid_amount;
+            },
+            isParticipant: function () {
+                return participants.includes(this.winner_search) || this.winner_search == null || this.winner_search === "";
+            }
+        },
+        delimiters: ["[[", "]]"]
+    });
+
+    </script>
+{% endblock %}

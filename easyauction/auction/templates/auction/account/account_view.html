@@ -1,0 +1,45 @@
+{% extends "auction/account/account_base.html" %}
+{% load widget_tweaks %}
+
+{% block content %}
+
+<div class="limiter">
+    <div class="container-login100">
+        <div class="wrap-login100">
+            <span class="login100-form-logo">
+                <i class="zmdi zmdi-landscape"></i>
+            </span>
+
+            <span class="login100-form-title p-b-34 p-t-27">Account Info</span>
+
+            <div class="wrap-input100">
+                <span class="text-black fs-25">Username:</span>
+                <span class="float-r text-white fs-20">{{ auctionuser.username }}</span>
+            </div>
+            <div class="wrap-input100">
+                <span class="text-black fs-25">Email:</span>
+                <span class="float-r text-white fs-20">{{ auctionuser.email }}</span>
+            </div>
+            <div class="wrap-input100">
+                <span class="text-black fs-25">First Name:</span>
+                <span class="float-r text-white fs-20">{{ auctionuser.first_name }}</span>
+            </div>
+            <div class="wrap-input100">
+                <span class="text-black fs-25">Last Name:</span>
+                <span class="float-r text-white fs-20">{{ auctionuser.last_name }}</span>
+            </div>
+            <div class="wrap-input100">
+                <span class="text-black fs-25">User ID:</span>
+                <span class="float-r text-white fs-20">{{ auctionuser.id }}</span>
+            </div>
+
+            <div class="container-login100-form-btn p-t-10">
+                <a class="login100-form-btn mx-2 mb-3" href={% url "auction:edit_account" %}>Edit Account</a>
+                <a class="login100-form-btn mx-2" href="{% url 'auction:change_password' %}">Change Password</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% endblock %}
